@@ -164,12 +164,12 @@ hev_socks5_user_mark_checker (HevSocks5User *self, const char *pass,
             } else if (mode_len >= 10 &&
                        0 == strncmp (mode_str, "sticky-ttl", 10)) {
                 um->ip_mode = 2;
-                if (mode_len > 11 && mode_str[10] == ':')
+                if (mode_len > 11 && mode_str[10] == '=')
                     um->ip_ttl = atoi (mode_str + 11);
             } else if (mode_len >= 6 &&
                        0 == strncmp (mode_str, "sticky", 6)) {
                 um->ip_mode = 1;
-                if (mode_len > 7 && mode_str[6] == ':')
+                if (mode_len > 7 && mode_str[6] == '=')
                     um->ip_ttl = atoi (mode_str + 7);
             }
         }

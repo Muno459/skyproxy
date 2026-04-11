@@ -276,7 +276,7 @@ curl -x socks5h://user:pass(win11!rotate)@server:1080 http://target
 curl -x socks5h://user:pass(macos!sticky)@server:1080 http://target
 
 # Sticky with 5-min TTL
-curl -x socks5h://user:pass(ios!sticky:300)@server:1080 http://target
+curl -x socks5h://user:pass(ios!sticky=300)@server:1080 http://target
 
 # Just rotate IP, no fingerprint change
 curl -x socks5h://user:pass(!rotate)@server:1080 http://target
