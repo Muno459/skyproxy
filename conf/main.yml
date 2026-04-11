@@ -13,6 +13,7 @@ ip-pool:
   ipv6-prefix-len: 48
   mode: rotate
   sticky-ttl: 600
+  force-ipv6: true       # force IPv6 resolution when pool is active
 
 misc:
   connect-timeout: 30000

@@ -48,6 +48,7 @@ static char ip_pool_ipv6_prefix[256];
 static int ip_pool_ipv6_prefix_len;
 static char ip_pool_mode[16];
 static int ip_pool_sticky_ttl = 600;
+static int ip_pool_force_ipv6 = 0;
 
 static int
 hev_config_parse_ip_pool (yaml_document_t *doc, yaml_node_t *base)
@@ -83,6 +84,8 @@ hev_config_parse_ip_pool (yaml_document_t *doc, yaml_node_t *base)
             strncpy (ip_pool_mode, value, 16 - 1);
         else if (0 == strcmp (key, "sticky-ttl"))
             ip_pool_sticky_ttl = strtol (value, NULL, 10);
+        else if (0 == strcmp (key, "force-ipv6"))
+            ip_pool_force_ipv6 = (0 == strcmp (value, "true") || 0 == strcmp (value, "1"));
     }
 
     return 0;
@@ -669,4 +672,10 @@ int
 hev_config_get_ip_pool_sticky_ttl (void)
 {
     return ip_pool_sticky_ttl;
+}
+
+int
+hev_config_get_ip_pool_force_ipv6 (void)
+{
+    return ip_pool_force_ipv6;
 }
