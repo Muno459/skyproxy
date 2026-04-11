@@ -321,9 +321,6 @@ hev_socks5_session_construct (HevSocks5Session *self, int fd)
     HEV_OBJECT (self)->klass = HEV_SOCKS5_SESSION_TYPE;
 
     addr_family = hev_config_get_address_family ();
-    if (hev_config_get_ip_pool_force_ipv6 () &&
-        hev_config_get_ip_pool_ipv6_prefix ())
-        addr_family = AF_INET6;
     hev_socks5_set_addr_family (HEV_SOCKS5 (self), addr_family);
 
     return 0;

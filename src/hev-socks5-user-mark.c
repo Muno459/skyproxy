@@ -9,9 +9,14 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+
+#include <hev-task.h>
+#include <hev-socks5.h>
 
 #include "hev-logger.h"
 #include "hev-p0f-parser.h"
+#include "hev-config.h"
 
 #include "hev-socks5-user-mark.h"
 
@@ -252,6 +257,19 @@ hev_socks5_user_mark_checker (HevSocks5User *self, const char *pass,
             um->client_pass = NULL;
             um->client_pass_len = 0;
         }
+    }
+
+    /* If this connection is using the IPv6 pool (rotate or sticky) and
+     * force-ipv6 is enabled in config, flip the session's address family
+     * so hostname resolution returns IPv6 only. We grab the session via
+     * the task's data pointer — hev_socks5_session_task_entry set it
+     * before running us. Keeps dual-stack for plain connections. */
+    if (um->ip_mode >= 0 &&
+        hev_config_get_ip_pool_force_ipv6 () &&
+        hev_config_get_ip_pool_ipv6_prefix ()) {
+        void *s = hev_task_get_data (hev_task_self ());
+        if (s)
+            hev_socks5_set_addr_family (HEV_SOCKS5 (s), AF_INET6);
     }
 
     return 0;
