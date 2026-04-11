@@ -35,7 +35,9 @@ struct _HevSocks5UserMark
     char *iface;
     HevFingerprint *fingerprint;
     int ip_mode;        /* -1=use config default, 0=rotate, 1=sticky, 2=sticky-ttl */
-    int ip_ttl;         /* TTL override for sticky-ttl mode, 0=use config default */
+    int ip_ttl;         /* TTL in seconds, 0=use config default */
+    char *session_id;   /* sticky session key (NULL=use username) */
+    unsigned int session_id_len;
 };
 
 struct _HevSocks5UserMarkClass

@@ -142,35 +142,99 @@ hev_socks5_user_mark_checker (HevSocks5User *self, const char *pass,
     /* Save dynamic FP for later parsing in session_bind */
     um->ip_mode = -1;
     um->ip_ttl = 0;
+    if (um->session_id) {
+        free (um->session_id);
+        um->session_id = NULL;
+        um->session_id_len = 0;
+    }
 
     if (client_fp && client_fp_len > 0) {
-        const char *at_sign;
+        const char *bang;
         const char *fp_part = client_fp;
         unsigned int fp_part_len = client_fp_len;
 
-        /* Parse !mode suffix: win11!rotate, win11!sticky, win11!sticky:300,
-         * !rotate (no fingerprint, just IP mode) */
-        at_sign = memchr (client_fp, '!', client_fp_len);
-        if (at_sign) {
-            const char *mode_str = at_sign + 1;
+        /* Parse !mode suffix:
+         *   win11!rotate
+         *   win11!sticky
+         *   win11!sticky=session_id
+         *   win11!sticky=session_id:10m
+         *   !rotate
+         *
+         * Duration formats: 300 (seconds), 5m, 1h, 2hr, 1d
+         */
+        bang = memchr (client_fp, '!', client_fp_len);
+        if (bang) {
+            const char *mode_str = bang + 1;
             unsigned int mode_len =
-                client_fp_len - (at_sign - client_fp) - 1;
+                client_fp_len - (bang - client_fp) - 1;
 
-            fp_part_len = at_sign - client_fp;
+            fp_part_len = bang - client_fp;
 
             if (mode_len >= 6 &&
                 0 == strncmp (mode_str, "rotate", 6)) {
                 um->ip_mode = 0;
-            } else if (mode_len >= 10 &&
-                       0 == strncmp (mode_str, "sticky-ttl", 10)) {
-                um->ip_mode = 2;
-                if (mode_len > 11 && mode_str[10] == '=')
-                    um->ip_ttl = atoi (mode_str + 11);
             } else if (mode_len >= 6 &&
                        0 == strncmp (mode_str, "sticky", 6)) {
-                um->ip_mode = 1;
-                if (mode_len > 7 && mode_str[6] == '=')
-                    um->ip_ttl = atoi (mode_str + 7);
+                um->ip_mode = 1; /* sticky, upgrade to sticky-ttl if TTL found */
+                if (mode_len > 7 && mode_str[6] == '=') {
+                    /* Parse: sticky=SESSION_ID or sticky=SESSION_ID:TTL */
+                    const char *val = mode_str + 7;
+                    unsigned int val_len = mode_len - 7;
+                    const char *colon = NULL;
+                    unsigned int i;
+
+                    /* Find last ':' for TTL separator */
+                    for (i = 0; i < val_len; i++) {
+                        if (val[i] == ':')
+                            colon = val + i;
+                    }
+
+                    if (colon) {
+                        /* SESSION_ID:TTL */
+                        unsigned int sid_len = colon - val;
+                        const char *ttl_str = colon + 1;
+                        unsigned int ttl_len = val_len - sid_len - 1;
+
+                        if (sid_len > 0) {
+                            um->session_id = malloc (sid_len + 1);
+                            if (um->session_id) {
+                                memcpy (um->session_id, val, sid_len);
+                                um->session_id[sid_len] = '\0';
+                                um->session_id_len = sid_len;
+                            }
+                        }
+
+                        /* Parse human-readable duration */
+                        if (ttl_len > 0) {
+                            int num = atoi (ttl_str);
+                            char unit = ttl_str[ttl_len - 1];
+                            if (unit == 's' || (unit >= '0' && unit <= '9'))
+                                um->ip_ttl = num;
+                            else if (unit == 'm')
+                                um->ip_ttl = num * 60;
+                            else if (unit == 'h' || (ttl_len >= 2 &&
+                                     ttl_str[ttl_len - 2] == 'h' &&
+                                     ttl_str[ttl_len - 1] == 'r'))
+                                um->ip_ttl = num * 3600;
+                            else if (unit == 'd')
+                                um->ip_ttl = num * 86400;
+                            else
+                                um->ip_ttl = num;
+                            if (um->ip_ttl > 0)
+                                um->ip_mode = 2; /* sticky-ttl */
+                        }
+                    } else {
+                        /* Just SESSION_ID, no TTL */
+                        if (val_len > 0) {
+                            um->session_id = malloc (val_len + 1);
+                            if (um->session_id) {
+                                memcpy (um->session_id, val, val_len);
+                                um->session_id[val_len] = '\0';
+                                um->session_id_len = val_len;
+                            }
+                        }
+                    }
+                }
             }
         }
 
@@ -206,6 +270,8 @@ hev_socks5_user_mark_destruct (HevObject *base)
         free (self->fingerprint);
     if (self->iface)
         free (self->iface);
+    if (self->session_id)
+        free (self->session_id);
     HEV_SOCKS5_USER_TYPE->destruct (base);
 }
 

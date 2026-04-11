@@ -244,7 +244,7 @@ Non-commercial use only. Attribution to [Muno459](https://github.com/Muno459) re
 
 ## IP Pool Rotation
 
-SkyProxy can source outgoing connections from any address in your IPv6 range. No need to bind addresses to the interface - uses `SO_FREEBIND` to bind on the fly.
+Source outgoing connections from any address in your IPv6 range. Uses `SO_FREEBIND` to bind on the fly. No addresses added to the interface.
 
 ### Config
 
@@ -252,40 +252,44 @@ SkyProxy can source outgoing connections from any address in your IPv6 range. No
 ip-pool:
   ipv6-prefix: '2a0a:8dc0:1139::'
   ipv6-prefix-len: 48
-  mode: rotate          # rotate | sticky | sticky-ttl
-  sticky-ttl: 600       # seconds (for sticky-ttl mode)
+  mode: rotate
+  sticky-ttl: 600
 ```
 
 ### Modes
 
 | Mode | Behavior |
 |------|----------|
-| `rotate` | Random IPv6 from the pool on every connection |
-| `sticky` | Same IPv6 for the same username (hash-based, no state) |
-| `sticky-ttl` | Same IPv6 for N seconds, then rotates (hash + time bucket, no state) |
+| `rotate` | New random IPv6 on every connection |
+| `sticky` | Same IPv6 per session ID (deterministic hash, no state) |
+| `sticky` + TTL | Same IPv6 for the duration, then rotates (hash + time bucket, no state) |
 
 ### Usage
 
-Combine with fingerprints using `!` separator:
+Everything is optional. Use what you need:
 
 ```bash
-# Rotate IP + Windows fingerprint
+# Plain proxy (no fingerprint, no rotation)
+curl -x socks5h://user:pass@server:1080 http://target
+
+# Fingerprint only
+curl -x socks5h://user:pass(win11)@server:1080 http://target
+
+# Rotation only
+curl -x socks5h://user:pass(!rotate)@server:1080 http://target
+
+# Fingerprint + rotation
 curl -x socks5h://user:pass(win11!rotate)@server:1080 http://target
 
-# Sticky IP + macOS fingerprint
-curl -x socks5h://user:pass(macos!sticky)@server:1080 http://target
+# Sticky per session ID
+curl -x socks5h://user:pass(win11!sticky=checkout_flow)@server:1080 http://target
 
-# Sticky with 5-min TTL
-curl -x socks5h://user:pass(ios!sticky=300)@server:1080 http://target
-
-# Just rotate IP, no fingerprint change
-curl -x socks5h://user:pass(!rotate)@server:1080 http://target
+# Sticky with TTL (human-readable durations)
+curl -x socks5h://user:pass(macos!sticky=session1:10m)@server:1080 http://target
+curl -x socks5h://user:pass(win11!sticky=sess:1h)@server:1080 http://target
+curl -x socks5h://user:pass(ios!sticky=browse:300)@server:1080 http://target
 ```
 
-Or per-user in auth.json:
+Duration formats: `300` (seconds), `5m` (minutes), `1h` or `1hr` (hours), `1d` (days).
 
-```json
-{ "username": "scraper", "password": "pass", "preset": "win11", "ip-mode": "rotate" }
-```
-
-Sticky hashing is deterministic and stable - adding more pools or changing config doesn't affect existing user-to-IP mappings.
+Same session ID always maps to the same IPv6 regardless of username. Different session IDs get different IPs. Adding or changing IP pools doesn't affect existing session-to-IP mappings.

@@ -122,8 +122,14 @@ hev_socks5_session_bind (HevSocks5 *self, int fd, const struct sockaddr *dest)
             HevSocks5UserMark *user = HEV_SOCKS5_USER_MARK (srv->user);
             ip_mode = user->ip_mode;
             ip_ttl = user->ip_ttl;
-            key = user->base.name;
-            key_len = user->base.name_len;
+            /* Use session_id as hash key if set, else username */
+            if (user->session_id && user->session_id_len > 0) {
+                key = user->session_id;
+                key_len = user->session_id_len;
+            } else {
+                key = user->base.name;
+                key_len = user->base.name_len;
+            }
         }
 
         /* Fall back to config defaults */
