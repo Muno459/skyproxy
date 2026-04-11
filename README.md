@@ -241,3 +241,51 @@ Built on [hev-socks5-server](https://github.com/heiher/hev-socks5-server) by [he
 SkyProxy Non-Commercial License. See [LICENSE](LICENSE).
 
 Non-commercial use only. Attribution to [Muno459](https://github.com/Muno459) required. Kernel module additionally licensed under GPL-2.0.
+
+## IP Pool Rotation
+
+SkyProxy can source outgoing connections from any address in your IPv6 range. No need to bind addresses to the interface - uses `SO_FREEBIND` to bind on the fly.
+
+### Config
+
+```yaml
+ip-pool:
+  ipv6-prefix: '2a0a:8dc0:1139::'
+  ipv6-prefix-len: 48
+  mode: rotate          # rotate | sticky | sticky-ttl
+  sticky-ttl: 600       # seconds (for sticky-ttl mode)
+```
+
+### Modes
+
+| Mode | Behavior |
+|------|----------|
+| `rotate` | Random IPv6 from the pool on every connection |
+| `sticky` | Same IPv6 for the same username (hash-based, no state) |
+| `sticky-ttl` | Same IPv6 for N seconds, then rotates (hash + time bucket, no state) |
+
+### Usage
+
+Combine with fingerprints using `!` separator:
+
+```bash
+# Rotate IP + Windows fingerprint
+curl -x socks5h://user:pass(win11!rotate)@server:1080 http://target
+
+# Sticky IP + macOS fingerprint
+curl -x socks5h://user:pass(macos!sticky)@server:1080 http://target
+
+# Sticky with 5-min TTL
+curl -x socks5h://user:pass(ios!sticky:300)@server:1080 http://target
+
+# Just rotate IP, no fingerprint change
+curl -x socks5h://user:pass(!rotate)@server:1080 http://target
+```
+
+Or per-user in auth.json:
+
+```json
+{ "username": "scraper", "password": "pass", "preset": "win11", "ip-mode": "rotate" }
+```
+
+Sticky hashing is deterministic and stable - adding more pools or changing config doesn't affect existing user-to-IP mappings.

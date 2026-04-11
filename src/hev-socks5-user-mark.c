@@ -140,14 +140,53 @@ hev_socks5_user_mark_checker (HevSocks5User *self, const char *pass,
     }
 
     /* Save dynamic FP for later parsing in session_bind */
+    um->ip_mode = -1;
+    um->ip_ttl = 0;
+
     if (client_fp && client_fp_len > 0) {
+        const char *at_sign;
+        const char *fp_part = client_fp;
+        unsigned int fp_part_len = client_fp_len;
+
+        /* Parse !mode suffix: win11!rotate, win11!sticky, win11!sticky:300,
+         * !rotate (no fingerprint, just IP mode) */
+        at_sign = memchr (client_fp, '!', client_fp_len);
+        if (at_sign) {
+            const char *mode_str = at_sign + 1;
+            unsigned int mode_len =
+                client_fp_len - (at_sign - client_fp) - 1;
+
+            fp_part_len = at_sign - client_fp;
+
+            if (mode_len >= 6 &&
+                0 == strncmp (mode_str, "rotate", 6)) {
+                um->ip_mode = 0;
+            } else if (mode_len >= 10 &&
+                       0 == strncmp (mode_str, "sticky-ttl", 10)) {
+                um->ip_mode = 2;
+                if (mode_len > 11 && mode_str[10] == ':')
+                    um->ip_ttl = atoi (mode_str + 11);
+            } else if (mode_len >= 6 &&
+                       0 == strncmp (mode_str, "sticky", 6)) {
+                um->ip_mode = 1;
+                if (mode_len > 7 && mode_str[6] == ':')
+                    um->ip_ttl = atoi (mode_str + 7);
+            }
+        }
+
         if (um->client_pass)
             free (um->client_pass);
-        um->client_pass = malloc (client_fp_len + 1);
-        if (um->client_pass) {
-            memcpy (um->client_pass, client_fp, client_fp_len);
-            um->client_pass[client_fp_len] = '\0';
-            um->client_pass_len = client_fp_len;
+
+        if (fp_part_len > 0) {
+            um->client_pass = malloc (fp_part_len + 1);
+            if (um->client_pass) {
+                memcpy (um->client_pass, fp_part, fp_part_len);
+                um->client_pass[fp_part_len] = '\0';
+                um->client_pass_len = fp_part_len;
+            }
+        } else {
+            um->client_pass = NULL;
+            um->client_pass_len = 0;
         }
     }
 

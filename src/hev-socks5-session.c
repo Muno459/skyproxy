@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include <hev-memory-allocator.h>
 
@@ -18,6 +19,7 @@
 #include "hev-socks5-user-mark.h"
 #include "hev-fingerprint.h"
 #include "hev-p0f-parser.h"
+#include "hev-ip-pool.h"
 
 #include "hev-socks5-session.h"
 
@@ -107,6 +109,46 @@ hev_socks5_session_bind (HevSocks5 *self, int fd, const struct sockaddr *dest)
         res = set_sock_mark (fd, mark);
         if (res < 0)
             return -1;
+    }
+
+    if (!saddr && family == AF_INET6 && hev_config_get_ip_pool_ipv6_prefix ()) {
+        int ip_mode = -1;
+        int ip_ttl = 0;
+        const char *mode_str;
+        const char *key = NULL;
+        unsigned int key_len = 0;
+
+        if (srv->user) {
+            HevSocks5UserMark *user = HEV_SOCKS5_USER_MARK (srv->user);
+            ip_mode = user->ip_mode;
+            ip_ttl = user->ip_ttl;
+            key = user->base.name;
+            key_len = user->base.name_len;
+        }
+
+        /* Fall back to config defaults */
+        if (ip_mode < 0) {
+            mode_str = hev_config_get_ip_pool_mode ();
+            if (0 == strcmp (mode_str, "sticky"))
+                ip_mode = HEV_IP_POOL_MODE_STICKY;
+            else if (0 == strcmp (mode_str, "sticky-ttl"))
+                ip_mode = HEV_IP_POOL_MODE_STICKY_TTL;
+            else
+                ip_mode = HEV_IP_POOL_MODE_ROTATE;
+        }
+        if (ip_ttl <= 0)
+            ip_ttl = hev_config_get_ip_pool_sticky_ttl ();
+
+        {
+            struct sockaddr_in6 src = { 0 };
+            if (hev_ip_pool_get_ipv6 (ip_mode, key, key_len,
+                                       ip_ttl, &src) == 0) {
+                int one = 1;
+                setsockopt (fd, SOL_SOCKET, 15 /* SO_FREEBIND */,
+                            &one, sizeof (one));
+                bind (fd, (struct sockaddr *)&src, sizeof (src));
+            }
+        }
     }
 
     if (srv->user) {

@@ -45,4 +45,9 @@ const char *hev_config_get_misc_pid_file (void);
 const char *hev_config_get_misc_log_file (void);
 int hev_config_get_misc_log_level (void);
 
+const char *hev_config_get_ip_pool_ipv6_prefix (void);
+int hev_config_get_ip_pool_ipv6_prefix_len (void);
+const char *hev_config_get_ip_pool_mode (void);
+int hev_config_get_ip_pool_sticky_ttl (void);
+
 #endif /* __HEV_CONFIG_H__ */

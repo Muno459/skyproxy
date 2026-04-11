@@ -44,6 +44,50 @@ static int log_level = HEV_LOGGER_WARN;
 static int addr_family = HEV_SOCKS5_ADDR_FAMILY_UNSPEC;
 static unsigned int socket_mark;
 
+static char ip_pool_ipv6_prefix[256];
+static int ip_pool_ipv6_prefix_len;
+static char ip_pool_mode[16];
+static int ip_pool_sticky_ttl = 600;
+
+static int
+hev_config_parse_ip_pool (yaml_document_t *doc, yaml_node_t *base)
+{
+    yaml_node_pair_t *pair;
+
+    if (!base || YAML_MAPPING_NODE != base->type)
+        return -1;
+
+    for (pair = base->data.mapping.pairs.start;
+         pair < base->data.mapping.pairs.top; pair++) {
+        yaml_node_t *node;
+        const char *key, *value;
+
+        if (!pair->key || !pair->value)
+            break;
+
+        node = yaml_document_get_node (doc, pair->key);
+        if (!node || YAML_SCALAR_NODE != node->type)
+            break;
+        key = (const char *)node->data.scalar.value;
+
+        node = yaml_document_get_node (doc, pair->value);
+        if (!node || YAML_SCALAR_NODE != node->type)
+            break;
+        value = (const char *)node->data.scalar.value;
+
+        if (0 == strcmp (key, "ipv6-prefix"))
+            strncpy (ip_pool_ipv6_prefix, value, 256 - 1);
+        else if (0 == strcmp (key, "ipv6-prefix-len"))
+            ip_pool_ipv6_prefix_len = strtol (value, NULL, 10);
+        else if (0 == strcmp (key, "mode"))
+            strncpy (ip_pool_mode, value, 16 - 1);
+        else if (0 == strcmp (key, "sticky-ttl"))
+            ip_pool_sticky_ttl = strtol (value, NULL, 10);
+    }
+
+    return 0;
+}
+
 static int
 hev_config_parse_main (yaml_document_t *doc, yaml_node_t *base)
 {
@@ -340,6 +384,8 @@ hev_config_parse_doc (yaml_document_t *doc)
             res = hev_config_parse_auth (doc, node);
         else if (0 == strcmp (key, "misc"))
             res = hev_config_parse_misc (doc, node);
+        else if (0 == strcmp (key, "ip-pool"))
+            res = hev_config_parse_ip_pool (doc, node);
 
         if (res < 0)
             return -1;
@@ -593,4 +639,34 @@ int
 hev_config_get_misc_log_level (void)
 {
     return log_level;
+}
+
+const char *
+hev_config_get_ip_pool_ipv6_prefix (void)
+{
+    if ('\0' == ip_pool_ipv6_prefix[0])
+        return NULL;
+
+    return ip_pool_ipv6_prefix;
+}
+
+int
+hev_config_get_ip_pool_ipv6_prefix_len (void)
+{
+    return ip_pool_ipv6_prefix_len;
+}
+
+const char *
+hev_config_get_ip_pool_mode (void)
+{
+    if ('\0' == ip_pool_mode[0])
+        return "rotate";
+
+    return ip_pool_mode;
+}
+
+int
+hev_config_get_ip_pool_sticky_ttl (void)
+{
+    return ip_pool_sticky_ttl;
 }

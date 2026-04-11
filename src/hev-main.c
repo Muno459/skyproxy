@@ -19,6 +19,7 @@
 #include "hev-config.h"
 #include "hev-config-const.h"
 #include "hev-logger.h"
+#include "hev-ip-pool.h"
 #include "hev-socks5-proxy.h"
 
 #include "hev-main.h"
@@ -89,13 +90,19 @@ hev_socks5_server_main_inner (void)
     if (pid_file)
         run_as_daemon (pid_file);
 
-    res = hev_socks5_proxy_init ();
+    res = hev_ip_pool_init ();
     if (res < 0)
         goto exit3;
+
+    res = hev_socks5_proxy_init ();
+    if (res < 0)
+        goto exit4;
 
     hev_socks5_proxy_run ();
 
     hev_socks5_proxy_fini ();
+exit4:
+    hev_ip_pool_fini ();
 exit3:
     hev_socks5_logger_fini ();
 exit2:
