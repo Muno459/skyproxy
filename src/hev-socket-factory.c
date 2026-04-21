@@ -110,7 +110,7 @@ hev_socket_factory_get (HevSocketFactory *self)
         goto exit_close;
     }
 
-    res = listen (fd, 100);
+    res = listen (fd, 4096);
     if (res < 0) {
         LOG_E ("socket factory listen");
         goto exit_close;
